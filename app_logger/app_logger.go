@@ -1,8 +1,9 @@
-package logger
+package app_logger
 
 import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"log"
 	"os"
 	"strings"
 )
@@ -12,24 +13,16 @@ const (
 	envLogOutput = "LOG_OUTPUT"
 )
 
-var appLog *LogClass
+var (
+	appLog *LogClass
+)
 
 type LogClass struct {
 	logger      *zap.Logger
 	sugarLogger *zap.SugaredLogger
 }
 
-type bookstoreLogger interface {
-	Debug(format string, v ...interface{})
-	Info(format string, v ...interface{})
-	Warning(format string, v ...interface{})
-	Error(format string, v ...interface{})
-}
-
-func GetLogger() bookstoreLogger {
-	if appLog == nil {
-		appLog = new(LogClass)
-	}
+func GetLogger() *LogClass {
 	return appLog
 }
 
@@ -39,7 +32,10 @@ func (l *LogClass) Debug(format string, v ...interface{}) {
 	} else {
 		appLog.sugarLogger.Debugf(format, v...)
 	}
-	appLog.sugarLogger.Sync()
+	err := appLog.sugarLogger.Sync()
+	if err != nil {
+		log.Fatalln("sugarLogger.Sync failed for Debug function")
+	}
 }
 
 func (l *LogClass) Info(format string, v ...interface{}) {
@@ -48,7 +44,10 @@ func (l *LogClass) Info(format string, v ...interface{}) {
 	} else {
 		appLog.sugarLogger.Infof(format, v...)
 	}
-	appLog.sugarLogger.Sync()
+	err := appLog.sugarLogger.Sync()
+	if err != nil {
+		log.Fatalln("sugarLogger.Sync failed for Info function")
+	}
 }
 
 func (l *LogClass) Warning(format string, v ...interface{}) {
@@ -57,7 +56,10 @@ func (l *LogClass) Warning(format string, v ...interface{}) {
 	} else {
 		appLog.sugarLogger.Warnf(format, v...)
 	}
-	appLog.sugarLogger.Sync()
+	err := appLog.sugarLogger.Sync()
+	if err != nil {
+		log.Fatalln("sugarLogger.Sync failed for Warning function")
+	}
 }
 
 func (l *LogClass) Error(format string, v ...interface{}) {
@@ -66,16 +68,25 @@ func (l *LogClass) Error(format string, v ...interface{}) {
 	} else {
 		appLog.sugarLogger.Errorf(format, v...)
 	}
-	appLog.sugarLogger.Sync()
+	err := appLog.sugarLogger.Sync()
+	if err != nil {
+		log.Fatalln("sugarLogger.Sync failed for Error function")
+	}
 }
 
+// init() functions can be used within a package block and regardless of how many times that package is imported, the init() function will only be called once.
+// https://tutorialedge.net/golang/the-go-init-function/
+// how to create singlton
+// https://golangbyexample.com/singleton-design-pattern-go/
 func init() {
+	//the init function is only called once per file in a package, appLog will init only once
+	appLog = &LogClass{}
 	var err error
 	// Construct encoderconfig
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "timestamp",
 		LevelKey:       "severity",
-		NameKey:        "logger",
+		NameKey:        "app_logger",
 		CallerKey:      "caller",
 		MessageKey:     "message",
 		StacktraceKey:  "stacktrace",
@@ -96,7 +107,7 @@ func init() {
 		EncoderConfig:    encoderConfig,
 	}
 
-	//Can construct a logger
+	//Can construct a app_logger
 	appLog.logger, err = config.Build()
 	if err != nil {
 		panic(err)

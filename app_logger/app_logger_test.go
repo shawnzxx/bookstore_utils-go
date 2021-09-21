@@ -1,13 +1,14 @@
-package logger
+package app_logger_test
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/shawnzxx/bookstore_utils-go/app_logger"
 	"os"
 	"testing"
 )
 
-var logger = GetLogger()
+var logger = app_logger.GetLogger()
 
 // 多行申明, 标注json.Marshal出来的是小写key，这样符合json输出规则
 type ShoppingCart struct {
@@ -34,7 +35,7 @@ var cart = &ShoppingCart{
 // TestMain is main entrypoint for each of package
 // M.run mean run all test cases in this test file
 func TestMain(m *testing.M) {
-	fmt.Println("about to start logger test")
+	fmt.Println("about to start app_logger test")
 	os.Exit(m.Run())
 }
 
