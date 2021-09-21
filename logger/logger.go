@@ -1,12 +1,10 @@
 package logger
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"os"
+	"strings"
 )
 
 const (
@@ -14,37 +12,98 @@ const (
 	envLogOutput = "LOG_OUTPUT"
 )
 
-var (
-	log logger
-)
+var appLog *LogClass
+
+type LogClass struct {
+	logger      *zap.Logger
+	sugarLogger *zap.SugaredLogger
+}
 
 type bookstoreLogger interface {
-	Print(v ...interface{})
-	Printf(format string, v ...interface{})
+	Debug(format string, v ...interface{})
+	Info(format string, v ...interface{})
+	Warning(format string, v ...interface{})
+	Error(format string, v ...interface{})
 }
-type logger struct {
-	log *zap.Logger
+
+func GetLogger() bookstoreLogger {
+	if appLog == nil {
+		appLog = new(LogClass)
+	}
+	return appLog
+}
+
+func (l *LogClass) Debug(format string, v ...interface{}) {
+	if len(v) == 0 {
+		appLog.sugarLogger.Debug(format)
+	} else {
+		appLog.sugarLogger.Debugf(format, v...)
+	}
+	appLog.sugarLogger.Sync()
+}
+
+func (l *LogClass) Info(format string, v ...interface{}) {
+	if len(v) == 0 {
+		appLog.sugarLogger.Info(format)
+	} else {
+		appLog.sugarLogger.Infof(format, v...)
+	}
+	appLog.sugarLogger.Sync()
+}
+
+func (l *LogClass) Warning(format string, v ...interface{}) {
+	if len(v) == 0 {
+		appLog.sugarLogger.Warn(format)
+	} else {
+		appLog.sugarLogger.Warnf(format, v...)
+	}
+	appLog.sugarLogger.Sync()
+}
+
+func (l *LogClass) Error(format string, v ...interface{}) {
+	if len(v) == 0 {
+		appLog.sugarLogger.Error(format)
+	} else {
+		appLog.sugarLogger.Errorf(format, v...)
+	}
+	appLog.sugarLogger.Sync()
 }
 
 func init() {
-	logConfig := zap.Config{
-		OutputPaths: []string{getOutput()},
-		Level:       zap.NewAtomicLevelAt(getLevel()),
-		Encoding:    "json",
-		EncoderConfig: zapcore.EncoderConfig{
-			LevelKey:     "level",
-			TimeKey:      "time",
-			MessageKey:   "msg",
-			EncodeTime:   zapcore.ISO8601TimeEncoder,
-			EncodeLevel:  zapcore.LowercaseLevelEncoder,
-			EncodeCaller: zapcore.ShortCallerEncoder,
-		},
+	var err error
+	// Construct encoderconfig
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:        "timestamp",
+		LevelKey:       "severity",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "message",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     "\n",
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.FullCallerEncoder,
 	}
 
-	var err error
-	if log.log, err = logConfig.Build(); err != nil {
+	// Construct config
+	config := zap.Config{
+		OutputPaths:      []string{getOutput()},
+		ErrorOutputPaths: []string{getOutput()},
+		Level:            zap.NewAtomicLevelAt(getLevel()),
+		Development:      true,
+		Encoding:         "json",
+		EncoderConfig:    encoderConfig,
+	}
+
+	//Can construct a logger
+	appLog.logger, err = config.Build()
+	if err != nil {
 		panic(err)
 	}
+
+	// The then Sugarlogger
+	appLog.sugarLogger = appLog.logger.Sugar()
 }
 
 func getLevel() zapcore.Level {
@@ -56,41 +115,15 @@ func getLevel() zapcore.Level {
 	case "error":
 		return zap.ErrorLevel
 	default:
-		return zap.InfoLevel
+		return zap.DebugLevel
 	}
 }
 
 func getOutput() string {
+	//set use log output file, if not set env variable use terminal instead
 	output := strings.TrimSpace(os.Getenv(envLogOutput))
 	if output == "" {
 		return "stdout"
 	}
 	return output
-}
-
-func GetLogger() bookstoreLogger {
-	return log
-}
-
-func (l logger) Printf(format string, v ...interface{}) {
-	if len(v) == 0 {
-		Info(format)
-	} else {
-		Info(fmt.Sprintf(format, v...))
-	}
-}
-
-func (l logger) Print(v ...interface{}) {
-	Info(fmt.Sprintf("%v", v))
-}
-
-func Info(msg string, tags ...zap.Field) {
-	log.log.Info(msg, tags...)
-	log.log.Sync()
-}
-
-func Error(msg string, err error, tags ...zap.Field) {
-	tags = append(tags, zap.NamedError("error", err))
-	log.log.Error(msg, tags...)
-	log.log.Sync()
 }
