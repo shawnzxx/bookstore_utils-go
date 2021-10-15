@@ -131,10 +131,12 @@ func getLevel() zapcore.Level {
 }
 
 func getOutput() string {
-	//set use log output file, if not set env variable use terminal instead
+	//set log location for logger, envLogOutput will get from upstream .env file when using docker start
+	//or in pure go command running the app, set environment variable before execute go run
 	output := strings.TrimSpace(os.Getenv(envLogOutput))
 	if output == "" {
-		return "stdout"
+		//default log location
+		output = "logs/app-logs.txt"
 	}
 	return output
 }
